@@ -727,6 +727,27 @@ class WebWeixin(object):
 
         if groupName != None:
             print '%s |%s| %s -> %s: %s' % (message_id, groupName.strip(), srcName.strip(), dstName.strip(), content.replace('<br/>', '\n'))
+            if groupName.strip() == "微信机器人测试":
+                content_new = content.replace('<br/>', '\n')
+                mat = content_new[0:9].isdigit()
+                print mat
+                if mat == True and len(content_new) == 9:
+                    lines = srcName.strip() + '\t' + content_new[0:9] + '\r\n'
+                    print lines
+                    fd = open("test2","a")
+                    fd.write(lines)
+                    fd.close()
+
+
+
+
+
+
+
+
+
+
+            
             logging.info('%s |%s| %s -> %s: %s' % (message_id, groupName.strip(),
                                                    srcName.strip(), dstName.strip(), content.replace('<br/>', '\n')))
         else:
