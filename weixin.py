@@ -17,9 +17,12 @@ import multiprocessing
 import platform
 import logging
 import httplib
+import datetime
 from collections import defaultdict
 from urlparse import urlparse
 from lxml import html
+from name_dict import name_dict
+from name_dict import name_abbr
 #import pdb
 
 # for media upload
@@ -163,7 +166,7 @@ class WebWeixin(object):
         else:
             self._str2qr('https://login.weixin.qq.com/l/' + self.uuid)
 
-    def _showQRCodeImg(self, os):
+    def _showQRCodeImg(self, os1):
         url = 'https://login.weixin.qq.com/qrcode/' + self.uuid
         params = {
             't': 'webwx',
@@ -174,9 +177,9 @@ class WebWeixin(object):
         if data == '':
             return
         QRCODE_PATH = self._saveFile('qrcode.jpg', data, '_showQRCodeImg')
-        if os == 'win':
+        if os1 == 'win':
             os.startfile(QRCODE_PATH)
-        elif os == 'macos':
+        elif os1 == 'macos':
             subprocess.call(["open", QRCODE_PATH])
         else:
             return
@@ -727,33 +730,105 @@ class WebWeixin(object):
 
         if groupName != None:
             print '%s |%s| %s -> %s: %s' % (message_id, groupName.strip(), srcName.strip(), dstName.strip(), content.replace('<br/>', '\n'))
-            if groupName.strip() == "微信机器人测试":
-                content_new = content.replace('<br/>', '\n')
-                mat = content_new[0:9].isdigit()
-                print mat
-                if mat == True and len(content_new) == 9:
-                    lines = srcName.strip() + '\t' + content_new[0:9] + '\r\n'
-                    print lines
-                    fd = open("test2","a")
-                    fd.write(lines)
-                    fd.close()
-
-
-
-
-
-
-
-
-
-
             
+            if groupName.strip() == "微信机器人测试" or groupName.strip() == "沉迷学习，日渐消瘦":
+                self.handleGroupMsg(content, msg, srcName)
+                
+#                print mat
+#                if mat == True and len(content_new) == 9:
+#                    lines = srcName.strip() + '\t' + content_new[0:9] + '\r\n'
+#                    print lines
+#                    fd = open("test2","a")
+#                    fd.write(lines)
+#                    fd.close()
+
             logging.info('%s |%s| %s -> %s: %s' % (message_id, groupName.strip(),
                                                    srcName.strip(), dstName.strip(), content.replace('<br/>', '\n')))
         else:
             print '%s %s -> %s: %s' % (message_id, srcName.strip(), dstName.strip(), content.replace('<br/>', '\n'))
             logging.info('%s %s -> %s: %s' % (message_id, srcName.strip(),
                                               dstName.strip(), content.replace('<br/>', '\n')))
+    def handleGroupMsg(self, content, msg, srcName):
+        log_info = ''
+        content_new = content.replace('<br/>', '\n')
+        buffer_content = content.split()
+
+        # Response to "签入/签到" "签出"
+        if content == "签入" or content == "签到":
+            date_time = datetime.datetime.now()
+            print repr(srcName)
+            print srcName
+            name = srcName.decode('UTF-8')
+            if name_dict.has_key(name):
+                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[name] + ' login' 
+                log_info = {'name' : name_dict[name], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+            else:
+                info = '用户未注册'
+                log_info = ''
+            self.webwxsendmsg(info + '【自动回复】', msg['raw_msg']['FromUserName'])
+        elif content == "签出":
+            date_time = datetime.datetime.now()
+            name = srcName.decode('UTF-8')
+            if name_dict.has_key(name):
+                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[name] + ' logout' 
+                log_info = {'name' : name_dict[name], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+            else:
+                info = "用户未注册"
+                log_info = ''
+            self.webwxsendmsg(info + '【自动回复】', msg['raw_msg']['FromUserName'])
+        else:
+            try:
+                if buffer_content[0] == '':
+                    buffer_content.pop(0)
+                if len(buffer_content) == 2 and buffer_content[0].isdigit() and buffer_content[1].isalpha():
+                    if len(buffer_content[0]) == 9:
+                        time = buffer_content[0][0:8]
+                        state = buffer_content[0][8]
+                        usr = buffer_content[1]
+    
+                        date_time = datetime.datetime(datetime.date.today().year, 
+                            int(buffer_content[0][0:2]), int(buffer_content[0][2:4]),
+                            int(buffer_content[0][4:6]), int(buffer_content[0][6:8]))
+
+                        if state is '1' :
+                            if name_dict.has_key(usr):
+                                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' login' 
+                                log_info = {'name' : name_dict[usr], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                            else:
+                                info = '用户未注册'
+                                log_info = ''
+                        elif state is '0':
+                            if name_dict.has_key(usr):
+                                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' logout' 
+                                log_info = {'name' : name_dict[usr], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                            else:
+                                info = '用户未注册'
+                                log_info = ''
+                        else:
+                            info = 'error'
+                            log_info = ''
+                        self.webwxsendmsg(info + '【自动回复】', msg['raw_msg']['FromUserName'])
+                    else:
+                        self.webwxsendmsg('时间格式错误【自动回复】', msg['raw_msg']['FromUserName'])
+                        log_info = ''
+            except Exception, e:
+                self.webwxsendmsg(str(e) + '【自动回复】', msg['raw_msg']['FromUserName'])
+                log_info = ''
+                pass
+
+        print log_info
+        if log_info is not '':
+            print 'ok'
+            fn = 'data\data_' + date_time.strftime('%Y-%m-%d') + '.json'
+            with open(fn, 'a') as f:
+                f.write(json.dumps(log_info) + '\n')
+            f.close()
+
+    def name_mapping(self, name):
+        if name_dict.has_key(name):
+            return name_dict[name]
+        else:
+            return ''
 
     def handleMsg(self, r):
         for msg in r['AddMsgList']:
@@ -783,73 +858,73 @@ class WebWeixin(object):
                     else:
                         print '自动回复失败'
                         logging.info('自动回复失败')
-            elif msgType == 3:
-                image = self.webwxgetmsgimg(msgid)
-                raw_msg = {'raw_msg': msg,
-                           'message': '%s 发送了一张图片: %s' % (name, image)}
-                self._showMsg(raw_msg)
-                self._safe_open(image)
-            elif msgType == 34:
-                voice = self.webwxgetvoice(msgid)
-                raw_msg = {'raw_msg': msg,
-                           'message': '%s 发了一段语音: %s' % (name, voice)}
-                self._showMsg(raw_msg)
-                self._safe_open(voice)
-            elif msgType == 42:
-                info = msg['RecommendInfo']
-                print '%s 发送了一张名片:' % name
-                print '========================='
-                print '= 昵称: %s' % info['NickName']
-                print '= 微信号: %s' % info['Alias']
-                print '= 地区: %s %s' % (info['Province'], info['City'])
-                print '= 性别: %s' % ['未知', '男', '女'][info['Sex']]
-                print '========================='
-                raw_msg = {'raw_msg': msg, 'message': '%s 发送了一张名片: %s' % (
-                    name.strip(), json.dumps(info))}
-                self._showMsg(raw_msg)
-            elif msgType == 47:
-                url = self._searchContent('cdnurl', content)
-                raw_msg = {'raw_msg': msg,
-                           'message': '%s 发了一个动画表情，点击下面链接查看: %s' % (name, url)}
-                self._showMsg(raw_msg)
-                self._safe_open(url)
-            elif msgType == 49:
-                appMsgType = defaultdict(lambda: "")
-                appMsgType.update({5: '链接', 3: '音乐', 7: '微博'})
-                print '%s 分享了一个%s:' % (name, appMsgType[msg['AppMsgType']])
-                print '========================='
-                print '= 标题: %s' % msg['FileName']
-                print '= 描述: %s' % self._searchContent('des', content, 'xml')
-                print '= 链接: %s' % msg['Url']
-                print '= 来自: %s' % self._searchContent('appname', content, 'xml')
-                print '========================='
-                card = {
-                    'title': msg['FileName'],
-                    'description': self._searchContent('des', content, 'xml'),
-                    'url': msg['Url'],
-                    'appname': self._searchContent('appname', content, 'xml')
-                }
-                raw_msg = {'raw_msg': msg, 'message': '%s 分享了一个%s: %s' % (
-                    name, appMsgType[msg['AppMsgType']], json.dumps(card))}
-                self._showMsg(raw_msg)
-            elif msgType == 51:
-                raw_msg = {'raw_msg': msg, 'message': '[*] 成功获取联系人信息'}
-                self._showMsg(raw_msg)
-            elif msgType == 62:
-                video = self.webwxgetvideo(msgid)
-                raw_msg = {'raw_msg': msg,
-                           'message': '%s 发了一段小视频: %s' % (name, video)}
-                self._showMsg(raw_msg)
-                self._safe_open(video)
-            elif msgType == 10002:
-                raw_msg = {'raw_msg': msg, 'message': '%s 撤回了一条消息' % name}
-                self._showMsg(raw_msg)
-            else:
-                logging.debug('[*] 该消息类型为: %d，可能是表情，图片, 链接或红包: %s' %
-                              (msg['MsgType'], json.dumps(msg)))
-                raw_msg = {
-                    'raw_msg': msg, 'message': '[*] 该消息类型为: %d，可能是表情，图片, 链接或红包' % msg['MsgType']}
-                self._showMsg(raw_msg)
+#            elif msgType == 3:
+#                image = self.webwxgetmsgimg(msgid)
+#                raw_msg = {'raw_msg': msg,
+#                           'message': '%s 发送了一张图片: %s' % (name, image)}
+#                self._showMsg(raw_msg)
+#                self._safe_open(image)
+#            elif msgType == 34:
+#                voice = self.webwxgetvoice(msgid)
+#                raw_msg = {'raw_msg': msg,
+#                           'message': '%s 发了一段语音: %s' % (name, voice)}
+#                self._showMsg(raw_msg)
+#                self._safe_open(voice)
+#            elif msgType == 42:
+#                info = msg['RecommendInfo']
+#                print '%s 发送了一张名片:' % name
+#                print '========================='
+#                print '= 昵称: %s' % info['NickName']
+#                print '= 微信号: %s' % info['Alias']
+#                print '= 地区: %s %s' % (info['Province'], info['City'])
+#                print '= 性别: %s' % ['未知', '男', '女'][info['Sex']]
+#                print '========================='
+#                raw_msg = {'raw_msg': msg, 'message': '%s 发送了一张名片: %s' % (
+#                    name.strip(), json.dumps(info))}
+#                self._showMsg(raw_msg)
+#            elif msgType == 47:
+#                url = self._searchContent('cdnurl', content)
+#                raw_msg = {'raw_msg': msg,
+#                           'message': '%s 发了一个动画表情，点击下面链接查看: %s' % (name, url)}
+#                self._showMsg(raw_msg)
+#                self._safe_open(url)
+#            elif msgType == 49:
+#                appMsgType = defaultdict(lambda: "")
+#                appMsgType.update({5: '链接', 3: '音乐', 7: '微博'})
+#                print '%s 分享了一个%s:' % (name, appMsgType[msg['AppMsgType']])
+#                print '========================='
+#                print '= 标题: %s' % msg['FileName']
+#                print '= 描述: %s' % self._searchContent('des', content, 'xml')
+#                print '= 链接: %s' % msg['Url']
+#                print '= 来自: %s' % self._searchContent('appname', content, 'xml')
+#                print '========================='
+#                card = {
+#                    'title': msg['FileName'],
+#                    'description': self._searchContent('des', content, 'xml'),
+#                    'url': msg['Url'],
+#                    'appname': self._searchContent('appname', content, 'xml')
+#                }
+#                raw_msg = {'raw_msg': msg, 'message': '%s 分享了一个%s: %s' % (
+#                    name, appMsgType[msg['AppMsgType']], json.dumps(card))}
+#                self._showMsg(raw_msg)
+#            elif msgType == 51:
+#                raw_msg = {'raw_msg': msg, 'message': '[*] 成功获取联系人信息'}
+#                self._showMsg(raw_msg)
+#            elif msgType == 62:
+#                video = self.webwxgetvideo(msgid)
+#                raw_msg = {'raw_msg': msg,
+#                           'message': '%s 发了一段小视频: %s' % (name, video)}
+#                self._showMsg(raw_msg)
+#                self._safe_open(video)
+#            elif msgType == 10002:
+#                raw_msg = {'raw_msg': msg, 'message': '%s 撤回了一条消息' % name}
+#                self._showMsg(raw_msg)
+#            else:
+#                logging.debug('[*] 该消息类型为: %d，可能是表情，图片, 链接或红包: %s' %
+#                              (msg['MsgType'], json.dumps(msg)))
+#                raw_msg = {
+#                    'raw_msg': msg, 'message': '[*] 该消息类型为: %d，可能是表情，图片, 链接或红包' % msg['MsgType']}
+#                self._showMsg(raw_msg)
 
     def listenMsgMode(self):
         print '[*] 进入消息监听模式 ... 成功'
@@ -881,6 +956,7 @@ class WebWeixin(object):
                     redEnvelope += 1
                     print '[*] 收到疑似红包消息 %d 次' % redEnvelope
                     logging.debug('[*] 收到疑似红包消息 %d 次' % redEnvelope)
+                    r = self.webwxsync()
                 elif selector == '7':
                     playWeChat += 1
                     print '[*] 你在手机上玩微信被我发现了 %d 次' % playWeChat
