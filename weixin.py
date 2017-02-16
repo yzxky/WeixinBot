@@ -774,6 +774,7 @@ class WebWeixin(object):
                     print time_in
                 else:
                     info = '您还未登出'
+                    log_info = ''
 
             else:
                 info = '用户未注册'
@@ -796,6 +797,7 @@ class WebWeixin(object):
                     self.webwxsendmsg('您本次签到时长为' + duration_info[0:7], msg['raw_msg']['FromUserName'])
                 else:
                     info = "您还未登入"
+                    log_info = ''
             else:
                 info = "用户未注册"
                 log_info = ''
@@ -823,6 +825,7 @@ class WebWeixin(object):
                                     time_in[(int)(id_dict[name_dict[usr]])] = date_time.strftime('%Y-%m-%d %H:%M')
                                 else:
                                     info = '您还未登出'
+                                    log_info = ''
                             else:
                                 info = '用户未注册'
                                 log_info = ''
@@ -843,8 +846,10 @@ class WebWeixin(object):
                                         self.webwxsendmsg('您本次签到时长为' + duration_info[0:7], msg['raw_msg']['FromUserName'])
                                     else:
                                         info = '签出时间在签入时间之前，你挺能啊，学习速度超过光速了'
+                                        log_info = ''
                                 else:
                                     info = '您还未登入'
+                                    log_info = ''
 
                     
                             else:
