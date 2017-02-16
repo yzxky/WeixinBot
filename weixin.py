@@ -23,13 +23,16 @@ from urlparse import urlparse
 from lxml import html
 from name_dict import name_dict
 from name_dict import name_abbr
+from id_group import id_dict
 #import pdb
 
 # for media upload
 import mimetypes
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
-
+state_in = [0 for i in range(14)]
+date_time_init = datetime.datetime.now()
+time_in = [date_time_init.strftime('%Y-%m-%d %H:%M') for i in range(14)]
 def catchKeyboardInterrupt(fn):
     def wrapper(*args):
         try:
@@ -732,6 +735,7 @@ class WebWeixin(object):
             print '%s |%s| %s -> %s: %s' % (message_id, groupName.strip(), srcName.strip(), dstName.strip(), content.replace('<br/>', '\n'))
             
             if groupName.strip() == "微信机器人测试" or groupName.strip() == "沉迷学习，日渐消瘦":
+                print msg['raw_msg']['Content']
                 self.handleGroupMsg(content, msg, srcName)
                 
 #                print mat
@@ -752,6 +756,7 @@ class WebWeixin(object):
         log_info = ''
         content_new = content.replace('<br/>', '\n')
         buffer_content = content.split()
+        
 
         # Response to "签入/签到" "签出"
         if content == "签入" or content == "签到":
@@ -760,8 +765,17 @@ class WebWeixin(object):
             print srcName
             name = srcName.decode('UTF-8')
             if name_dict.has_key(name):
-                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[name] + ' login' 
-                log_info = {'name' : name_dict[name], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                if state_in[(int)(id_dict[name_dict[name]])] == 0:
+                    info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[name] + ' login' 
+                    log_info = {'name' : name_dict[name], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                    state_in[(int)(id_dict[name_dict[name]])] = 1
+                    time_in[(int)(id_dict[name_dict[name]])] = date_time.strftime('%Y-%m-%d %H:%M')
+                    print state_in
+                    print time_in
+                else:
+                    info = '您还未登出'
+                    log_info = ''
+
             else:
                 info = '用户未注册'
                 log_info = ''
@@ -770,8 +784,20 @@ class WebWeixin(object):
             date_time = datetime.datetime.now()
             name = srcName.decode('UTF-8')
             if name_dict.has_key(name):
-                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[name] + ' logout' 
-                log_info = {'name' : name_dict[name], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                if state_in[(int)(id_dict[name_dict[name]])] == 1:
+                    info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[name] + ' logout' 
+                    log_info = {'name' : name_dict[name], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                    state_in[(int)(id_dict[name_dict[name]])] = 0
+                    duration = datetime.datetime.now() - datetime.datetime.strptime(time_in[(int)(id_dict[name_dict[name]])], '%Y-%m-%d %H:%M')
+                    duration_info = (str)(duration)
+
+                    date_time_out = datetime.datetime.now()
+                    time_in[(int)(id_dict[name_dict[name]])] = date_time_out.strftime('%Y-%m-%d %H:%M')
+
+                    self.webwxsendmsg('您本次签到时长为' + duration_info[0:7], msg['raw_msg']['FromUserName'])
+                else:
+                    info = "您还未登入"
+                    log_info = ''
             else:
                 info = "用户未注册"
                 log_info = ''
@@ -792,15 +818,40 @@ class WebWeixin(object):
 
                         if state is '1' :
                             if name_dict.has_key(usr):
-                                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' login' 
-                                log_info = {'name' : name_dict[usr], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                                if state_in[(int)(id_dict[name_dict[usr]])] == 0:
+                                    info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' login' 
+                                    log_info = {'name' : name_dict[usr], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                                    state_in[(int)(id_dict[name_dict[usr]])] = 1
+                                    time_in[(int)(id_dict[name_dict[usr]])] = date_time.strftime('%Y-%m-%d %H:%M')
+                                else:
+                                    info = '您还未登出'
+                                    log_info = ''
                             else:
                                 info = '用户未注册'
                                 log_info = ''
                         elif state is '0':
                             if name_dict.has_key(usr):
-                                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' logout' 
-                                log_info = {'name' : name_dict[usr], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                                if state_in[(int)(id_dict[name_dict[usr]])] == 1:
+                                    duration = date_time - datetime.datetime.strptime(time_in[(int)(id_dict[name_dict[usr]])], '%Y-%m-%d %H:%M')
+                                    duration_info = (str)(duration)
+                                    seconds = duration.total_seconds()
+                                    if seconds > 0:
+                                        info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' logout' 
+                                        log_info = {'name' : name_dict[usr], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                                        state_in[(int)(id_dict[name_dict[usr]])] = 0
+                                        
+    
+                                        date_time_out = date_time
+                                        time_in[(int)(id_dict[name_dict[usr]])] = date_time_out.strftime('%Y-%m-%d %H:%M')
+                                        self.webwxsendmsg('您本次签到时长为' + duration_info[0:7], msg['raw_msg']['FromUserName'])
+                                    else:
+                                        info = '签出时间在签入时间之前，你挺能啊，学习速度超过光速了'
+                                        log_info = ''
+                                else:
+                                    info = '您还未登入'
+                                    log_info = ''
+
+                    
                             else:
                                 info = '用户未注册'
                                 log_info = ''
