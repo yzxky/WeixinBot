@@ -26,7 +26,7 @@ name_dict = {
 	"liuyang" : 'ly',
 	"ly" : 'ly',
 	u"王佳林" : 'wjl',
-	"liuyang" : 'wjl',
+	"wangjialin" : 'wjl',
 	"wjl" : 'wjl',
 	u"林声远" : 'lsy',
 	"linshengyuan" : 'lsy',
