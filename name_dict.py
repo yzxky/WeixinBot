@@ -43,6 +43,10 @@ name_dict = {
 	u"韦洁"   : 'wj',
 	"weijie" : 'wj',
 	"wj" : 'wj',
+	u"陈佳宁" : 'cjn',
+	u"陳佳寧" : 'cjn',
+	"chenjianing" : 'cjn',
+	"cjn" : 'cjn',
 	u"机器人" : 'test',
 }
 
@@ -59,5 +63,6 @@ name_abbr = {
 	'lsy',
 	'yc',
 	'ssm',
-	'wj'
+	'wj',
+	'cjn'
 }

@@ -30,7 +30,7 @@ from id_group import id_dict
 import mimetypes
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 
-memberNum = 14
+memberNum = 15
 state_in = [0 for i in range(memberNum)]
 date_time_init = datetime.datetime.now() - datetime.timedelta(2)
 last_login = [date_time_init for i  in range(memberNum)]
@@ -766,8 +766,24 @@ class WebWeixin(object):
         buffer_content = content.split()
         info = ''
 
+        if buffer_content[0] == "查询":
+            date_time = datetime.datetime.now()
+            name = ''
+            if len(buffer_content) == 1:
+                name = srcName.decode('UTF-8')
+            elif len(buffer_content) == 2 and buffer_content[1].isalpha():
+                name = buffer_content[1].decode('UTF-8')
+
+            if name_dict.has_key(name):
+                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[name] + ' login' 
+                check_info = {'name' : name_dict[name], 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                log_info = ''
+                self.handleCheck(check_info, dst)
+            else:
+                info = '查无此人'
+                log_info = ''
         # Response to "签入/签到" "签出"
-        if content == "签入" or content == "签到":
+        elif content == "签入" or content == "签到":
             date_time = datetime.datetime.now()
             print repr(srcName)
             print srcName
@@ -793,8 +809,6 @@ class WebWeixin(object):
 
         else:
             try:
-                if buffer_content[0] == '':
-                    buffer_content.pop(0)
                 if len(buffer_content) == 2 and buffer_content[0].isdigit() and buffer_content[1].isalpha():
                     if len(buffer_content[0]) == 9:
                         time = buffer_content[0][0:8]
@@ -895,10 +909,31 @@ class WebWeixin(object):
                 weekday = time.weekday()
                 online_time[weekday][id] = online_time[weekday][id] + duration
                 online_time_sum[id] = online_time_sum[id] + duration
-                info = '您本次沉迷学习时间为：' + str(duration)
+                info = '本次学习时间为：' + str(duration) + '\n今日沉迷学习时间为：' + str(online_time[weekday][id])
                 flag = True
             return [info, flag]
 
+    def handleCheck(self, check_info, dst):
+        name = check_info['name']
+        id = int(id_dict[name])
+        time = datetime.datetime.strptime(check_info['time'], '%Y-%m-%d %H:%M')
+
+        duration = (time - last_login[id]) * state_in[id]
+#        if state_in[id] is 1:
+#            duration = time - last_login[id]
+#        else:
+#            duration = datetime.timedelta(0)
+
+        weekday = time.weekday()
+        online_time_curr = online_time[weekday][id] + duration
+        #rank = memberNum + 1
+
+        #for i in range(memberNum):
+        #    if online_time_curr >= online_time[weekday][i] + (time - last_login[i]) * state_in[i]:
+        #        rank = rank - 1
+        #msg = name + '今日在线总时间为：' + str(online_time_curr) + '\n排名第' + str(rank) + '位'
+        msg = name + '今日在线总时间为：' + str(online_time_curr)
+        self.webwxsendmsg(msg, dst)
 
     def handleMsg(self, r):
         for msg in r['AddMsgList']:
