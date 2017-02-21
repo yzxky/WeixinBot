@@ -33,10 +33,12 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 memberNum = 15
 state_in = [0 for i in range(memberNum)]
 date_time_init = datetime.datetime.now() - datetime.timedelta(2)
-last_login = [date_time_init for i  in range(memberNum)]
+time_init_temp = date_time_init.strftime('%Y-%m-%d %H:%M')
+time_init = datetime.datetime.strptime(time_init_temp, '%Y-%m-%d %H:%M')
+last_login = [time_init for i  in range(memberNum)]
 
 online_time = [[datetime.timedelta(0) for i in range(memberNum)] for i in range(7)]
-online_time_sum = [datetime.timedelta(0) for i in range(memberNum)]
+
 
 def catchKeyboardInterrupt(fn):
     def wrapper(*args):
@@ -806,7 +808,25 @@ class WebWeixin(object):
                 info = "用户未注册"
                 log_info = ''
  #           self.webwxsendmsg(info + '【自动回复】', dst)
+        elif content == "统计":
+            date_time = datetime.datetime.now()
+            name = ''
+            if len(buffer_content) == 1:
+                name = srcName.decode('UTF-8')
+            elif len(buffer_content) == 2 and buffer_content[1].isalpha():
+                name = buffer_content[1].decode('UTF-8')
 
+            if name_dict.has_key(name):
+                check_info = {'name' : name_dict[name], 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                self.timeSum(check_info, dst)
+
+        elif content == "排名":
+            date_time = datetime.datetime.now()
+            name = srcName.decode('UTF-8')
+            check_info = {'name' : name_dict[name], 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+            self.timeRank(check_info, dst)
+        elif content == "读取状态":
+            self.readStatus(dst)
         else:
             try:
                 if len(buffer_content) == 2 and buffer_content[0].isdigit() and buffer_content[1].isalpha():
@@ -868,7 +888,30 @@ class WebWeixin(object):
                 with open(fn, 'a') as f:
                     f.write(json.dumps(log_info) + '\n')
                 f.close()
+                fd = open('cache','w+')
+                for i in range(memberNum):
+                    line = (str)(state_in[i]) + '\t' + (str)(last_login[i])
+                    for j in range(7):
+                        line = line + '\t' + (str)(online_time[j][i].total_seconds())
+                    line = line + '\t'+ 'end' + '\n'
+                    fd.write(line)
+                fd.close()
 
+    def readStatus(self, dst):
+        fd = open('cache','r')
+        num = 0
+        for lines in fd.readlines():
+            content_all = lines.split('\t')
+            
+            state_in[num] = (int)(content_all[0])
+            last_login[num] = datetime.datetime.strptime(content_all[1], '%Y-%m-%d %H:%M:%S')
+            for i in range(7):
+            	print(content_all[2+i])
+            	print((str)(i))
+            	temp_time = content_all[2+i][:-2]
+                online_time[i][num] = datetime.timedelta(0,(int)(temp_time))
+            num = num + 1
+        self.webwxsendmsg('读取成功',dst)
     def checkLogInfo(self, log_info):
         action = int(log_info['state']) #'0': logout, '1': login
         name = log_info['name']
@@ -908,7 +951,7 @@ class WebWeixin(object):
                 duration = time - last_login[id]
                 weekday = time.weekday()
                 online_time[weekday][id] = online_time[weekday][id] + duration
-                online_time_sum[id] = online_time_sum[id] + duration
+                #online_time_sum[id] = online_time_sum[id] + duration
                 info = '本次学习时间为：' + str(duration) + '\n今日沉迷学习时间为：' + str(online_time[weekday][id])
                 flag = True
             return [info, flag]
@@ -934,6 +977,52 @@ class WebWeixin(object):
         #msg = name + '今日在线总时间为：' + str(online_time_curr) + '\n排名第' + str(rank) + '位'
         msg = name + '今日在线总时间为：' + str(online_time_curr)
         self.webwxsendmsg(msg, dst)
+
+    def timeSum(self, check_info, dst):
+        name = check_info['name']
+        id = int(id_dict[name])
+        time = datetime.datetime.strptime(check_info['time'], '%Y-%m-%d %H:%M')
+
+        duration = (time - last_login[id]) * state_in[id]
+#        if state_in[id] is 1:
+#            duration = time - last_login[id]
+#        else:
+#            duration = datetime.timedelta(0)
+
+        weekday = time.weekday()
+        sum_time = datetime.timedelta(0)
+        for i in range(weekday):
+            sum_time = sum_time + online_time[i][id]
+        sum_time = sum_time + duration
+        msg = name + '本周在线总时间为：' + str(sum_time)
+        self.webwxsendmsg(msg, dst)
+
+    def timeRank(self, check_info, dst):
+        online_time_sum = [datetime.timedelta(0) for i in range(memberNum)]
+        totalseconds = [0 for i in range(memberNum)]
+        name = check_info['name']
+        id = int(id_dict[name])
+        time = datetime.datetime.strptime(check_info['time'], '%Y-%m-%d %H:%M')
+        for i in range(memberNum):
+            duration = (time - last_login[i]) * state_in[i]
+            weekday = time.weekday()
+            for j in range(weekday):
+                online_time_sum[i] = online_time_sum[i] + online_time[j][i]
+            online_time_sum[i] = online_time_sum[i] + duration
+            totalseconds[i] = online_time_sum[i].total_seconds()
+        name_list = ['xky','ssm','ly','hjf','gjq','gdx','zrb','hxf','yc','lsy','test','ldy','wjl','wj','cjn']
+        lists = zip(totalseconds, online_time_sum, name_list)
+        lists.sort(key=lambda x:x[0],reverse=True)
+        msg = '本周目前排名：\n'
+        rank = 0
+        for i in range(memberNum):
+            msg = msg + lists[i][2] + ' ' + str(lists[i][1]) + '\n'
+            if lists[i][2] == name:
+                rank = i + 1
+        if rank != 0:
+            msg = msg + name + "的目前排名：" + (str)(rank)
+        self.webwxsendmsg(msg, dst)
+
 
     def handleMsg(self, r):
         for msg in r['AddMsgList']:
