@@ -841,15 +841,25 @@ class WebWeixin(object):
 
                         if state is '1' :
                             if name_dict.has_key(usr):
-                                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' login' 
-                                log_info = {'name' : name_dict[usr], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                                if usr == 'gjq':
+                                    date_time = date_time + datetime.timedelta(0, 46800)
+                                    info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' login' 
+                                    log_info = {'name' : name_dict[usr], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                                else:
+                                    info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' login' 
+                                    log_info = {'name' : name_dict[usr], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
                             else:
                                 info = '用户未注册'
                                 log_info = ''
                         elif state is '0':
                             if name_dict.has_key(usr):
-                                info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' logout' 
-                                log_info = {'name' : name_dict[usr], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                                if usr == 'gjq':
+                                    date_time = date_time + datetime.timedelta(0, 46800)
+                                    info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' logout' 
+                                    log_info = {'name' : name_dict[usr], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+                                else:
+                                    info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' logout' 
+                                    log_info = {'name' : name_dict[usr], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
                             else:
                                 info = '用户未注册'
                                 log_info = ''
@@ -906,9 +916,9 @@ class WebWeixin(object):
             state_in[num] = (int)(content_all[0])
             last_login[num] = datetime.datetime.strptime(content_all[1], '%Y-%m-%d %H:%M:%S')
             for i in range(7):
-            	print(content_all[2+i])
-            	print((str)(i))
-            	temp_time = content_all[2+i][:-2]
+                print(content_all[2+i])
+                print((str)(i))
+                temp_time = content_all[2+i][:-2]
                 online_time[i][num] = datetime.timedelta(0,(int)(temp_time))
             num = num + 1
         self.webwxsendmsg('读取成功',dst)
@@ -991,7 +1001,7 @@ class WebWeixin(object):
 
         weekday = time.weekday()
         sum_time = datetime.timedelta(0)
-        for i in range(weekday):
+        for i in range(weekday + 1):
             sum_time = sum_time + online_time[i][id]
         sum_time = sum_time + duration
         msg = name + '本周在线总时间为：' + str(sum_time)
@@ -1006,7 +1016,7 @@ class WebWeixin(object):
         for i in range(memberNum):
             duration = (time - last_login[i]) * state_in[i]
             weekday = time.weekday()
-            for j in range(weekday):
+            for j in range(weekday + 1):
                 online_time_sum[i] = online_time_sum[i] + online_time[j][i]
             online_time_sum[i] = online_time_sum[i] + duration
             totalseconds[i] = online_time_sum[i].total_seconds()
