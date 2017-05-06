@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# coding: utf-8
+# coding: utf-8 
 import qrcode
 import urllib
 import urllib2
@@ -25,7 +25,10 @@ from name_dict import name_dict
 from name_dict import name_abbr
 from id_group import id_dict
 #import pdb
-
+print sys.getdefaultencoding()
+reload(sys)   
+sys.setdefaultencoding('utf8')
+print sys.getdefaultencoding() 
 # for media upload
 import mimetypes
 from requests_toolbelt.multipart.encoder import MultipartEncoder
@@ -775,8 +778,8 @@ class WebWeixin(object):
         content_new = content.replace('<br/>', '\n')
         buffer_content = content.split()
         info = ''
-
-        if buffer_content[0] == "查询":
+        # query keywords: query or q (for short).
+        if buffer_content[0] == "查询" or buffer_content[0].lower() == "query" or buffer_content[0].lower() == "q":
             date_time = datetime.datetime.now()
             name = ''
             if len(buffer_content) == 1:
@@ -793,7 +796,8 @@ class WebWeixin(object):
                 info = '查无此人'
                 log_info = ''
         # Response to "签入/签到" "签出"
-        elif content == "签入" or content == "签到":
+        # login keywords: login or in (for short).
+        elif content == "签入" or content == "签到" or content.lower() == "login" or content.lower() == "in":
             date_time = datetime.datetime.now()
             print repr(srcName)
             print srcName
@@ -805,8 +809,8 @@ class WebWeixin(object):
                 info = '用户未注册'
                 log_info = ''
  #           self.webwxsendmsg(info + '【自动回复】', dst)
-
-        elif content == "签出":
+        # logout keywords: logout or out (for short).
+        elif content == "签出" or content.lower() == "logout" or content.lower() == "out":
             date_time = datetime.datetime.now()
             name = srcName.decode('UTF-8')
             if name_dict.has_key(name):
@@ -816,7 +820,8 @@ class WebWeixin(object):
                 info = "用户未注册"
                 log_info = ''
  #           self.webwxsendmsg(info + '【自动回复】', dst)
-        elif content == "统计":
+        # sum keywords: sum.
+        elif content == "统计" or content.lower() == "sum":
             date_time = datetime.datetime.now()
             name = ''
             if len(buffer_content) == 1:
@@ -827,14 +832,46 @@ class WebWeixin(object):
             if name_dict.has_key(name):
                 check_info = {'name' : name_dict[name], 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
                 self.timeSum(check_info, dst)
-
-        elif content == "排名":
+        # thisrank keywords: thisrank.
+        elif content == "今日排名" or content == "今日排行" or content.lower() == "thisrank":
+            date_time = datetime.datetime.now()
+            name = srcName.decode('UTF-8')
+            check_info = {'name' : name_dict[name], 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
+            self.thisRank(check_info, dst)
+        # rank keywords: rank.
+        elif content == "排名" or content == "排行" or content.lower() == "rank":
             date_time = datetime.datetime.now()
             name = srcName.decode('UTF-8')
             check_info = {'name' : name_dict[name], 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
             self.timeRank(check_info, dst)
         elif content == "读取状态":
             self.readStatus(dst)
+        elif content == "sudo清空重置":
+            date_time = datetime.datetime.now()
+            fn = 'data/data_' + date_time.strftime('%Y-%m-%d') + '.json'
+            fd = open(fn,'w+')
+            for i in range(memberNum):
+                line = (str)(state_in[i]) + '\t' + (str)(last_login[i])
+                for j in range(7):
+                    line = line + '\t' + (str)(online_time[j][i].total_seconds())
+                line = line + '\t'+ 'end' + '\n'
+                fd.write(line)
+            fd.close()
+            for i in range(memberNum):
+            	state_in[i] = 0
+            	last_login[i] = time_init
+            	for j in range(7):
+            		online_time[j][i] = datetime.timedelta(0)
+            fd = open('cache','w+')
+            for i in range(memberNum):
+                line = (str)(state_in[i]) + '\t' + (str)(last_login[i])
+                for j in range(7):
+                    line = line + '\t' + (str)(online_time[j][i].total_seconds())
+                line = line + '\t'+ 'end' + '\n'
+                fd.write(line)
+            fd.close()
+            self.webwxsendmsg('重置成功',dst)
+
         else:
             try:
                 if len(buffer_content) == 2 and buffer_content[0].isdigit() and buffer_content[1].isalpha():
@@ -850,7 +887,7 @@ class WebWeixin(object):
                         if state is '1' :
                             if name_dict.has_key(usr):
                                 if usr == 'gjq':
-                                    date_time = date_time + datetime.timedelta(0, 46800)
+                                    date_time = date_time + datetime.timedelta(0, 43200)
                                     info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' login' 
                                     log_info = {'name' : name_dict[usr], 'state' : '1', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
                                 else:
@@ -862,7 +899,7 @@ class WebWeixin(object):
                         elif state is '0':
                             if name_dict.has_key(usr):
                                 if usr == 'gjq':
-                                    date_time = date_time + datetime.timedelta(0, 46800)
+                                    date_time = date_time + datetime.timedelta(0, 43200)
                                     info = '[' + date_time.strftime('%Y-%m-%d %H:%M') + ']: ' + name_dict[usr] + ' logout' 
                                     log_info = {'name' : name_dict[usr], 'state' : '0', 'time' : date_time.strftime('%Y-%m-%d %H:%M')}
                                 else:
@@ -902,7 +939,7 @@ class WebWeixin(object):
         if log_info is not '':
             if flag is True:
                 print 'ok'
-                fn = 'data\data_' + date_time.strftime('%Y-%m-%d') + '.json'
+                fn = 'data/data_' + date_time.strftime('%Y-%m-%d') + '.json'
                 with open(fn, 'a') as f:
                     f.write(json.dumps(log_info) + '\n')
                 f.close()
@@ -954,7 +991,7 @@ class WebWeixin(object):
                 state_in[id] = 1
                 weekday = time.weekday()
                 if online_time[weekday][id] == datetime.timedelta(0):
-                    info = '您刚开始沉迷学习，加油'
+                    info = '春天是学习的季节。您刚开始沉迷学习，加油'
                 else:
                     info = '您今日沉迷学习时间为：' + str(online_time[weekday][id])
                 flag = True
@@ -1015,6 +1052,45 @@ class WebWeixin(object):
         msg = name + '本周在线总时间为：' + str(sum_time)
         self.webwxsendmsg(msg, dst)
 
+    # [func] ranking for the queryed date
+    #        code reused from [func]timeRank
+    #        todo: 1. time zone issue of Jacky Gao
+    #              2. start time modified as 06:00 am
+    def thisRank(self, check_info, dst):
+        online_this_sum = [datetime.timedelta(0) for i in range(memberNum)]
+        thisseconds = [0 for i in range(memberNum)] # seconds count for today till queryed time
+        name = check_info['name']
+        id = int(id_dict[name])
+        time = datetime.datetime.strptime(check_info['time'], '%Y-%m-%d %H:%M')
+        for i in range(memberNum):
+            duration = (time - last_login[i]) * state_in[i]
+            weekday = time.weekday()
+            online_this_sum[i] = online_time[weekday][i] + duration
+            thisseconds[i] = online_this_sum[i].total_seconds()
+        name_list = ['徐凯源','宋绍铭','刘　洋','韩纪飞','高佳琦','郭东旭','张若冰','韩晓霏','于　超','林声远','鸡器人','厉丹阳','王佳林','韦　洁' ,'陈佳宁']
+        name_list_eng = ['xky','ssm','ly','hjf','gjq','gdx','zrb','hxf','yc','lsy','test','ldy','wjl','wj' ,'cjn']
+        lists = zip(thisseconds, online_this_sum, name_list, name_list_eng)
+        lists.sort(key=lambda x:x[0],reverse=True)
+        msg = '今日当前排名：\n'
+        rank = 0
+        for i in range(memberNum):
+            rkstr = '  %d' % (i+1)  # rank string
+            if len(rkstr) < 4: # add two (half-width) space for alignment
+                rkstr = '  ' + rkstr
+            hrstr = '%2.1f' % (lists[i][0] / 3600.0) # hour string 
+            if len(hrstr) < 4: # add four (half-width) space for alignment
+                hrstr = '    ' + hrstr
+            elif len(hrstr) < 5: # add two (half-width) space for alignment
+                hrstr =   '  ' + hrstr
+            msg = msg + rkstr + ' | ' + lists[i][2] + ' ' + hrstr + ' 小时\n'
+            if lists[i][3] == name:
+                rank = i + 1
+        if rank != 0:
+            names = lists[rank - 1][2].replace('　', '') # omit the full-width space '\xa1\xa1'
+            # splitline = '——————————\n' # split line (caution: display varies with PC and phone)
+            msg = msg + names + "的当前排名：" + (str)(rank)
+        self.webwxsendmsg(msg, dst)
+
     def timeRank(self, check_info, dst):
         online_time_sum = [datetime.timedelta(0) for i in range(memberNum)]
         totalseconds = [0 for i in range(memberNum)]
@@ -1028,19 +1104,29 @@ class WebWeixin(object):
                 online_time_sum[i] = online_time_sum[i] + online_time[j][i]
             online_time_sum[i] = online_time_sum[i] + duration
             totalseconds[i] = online_time_sum[i].total_seconds()
-        name_list = ['xky','ssm','ly','hjf','gjq','gdx','zrb','hxf','yc','lsy','test','ldy','wjl','wj','cjn']
-        lists = zip(totalseconds, online_time_sum, name_list)
+        name_list = ['徐凯源','宋绍铭','刘　洋','韩纪飞','高佳琦','郭东旭','张若冰','韩晓霏','于　超','林声远','鸡器人','厉丹阳','王佳林','韦　洁' ,'陈佳宁']
+        name_list_eng = ['xky','ssm','ly','hjf','gjq','gdx','zrb','hxf','yc','lsy','test','ldy','wjl','wj' ,'cjn']
+        lists = zip(totalseconds, online_time_sum, name_list, name_list_eng)
         lists.sort(key=lambda x:x[0],reverse=True)
         msg = '本周目前排名：\n'
         rank = 0
         for i in range(memberNum):
-            msg = msg + lists[i][2] + ' ' + str(lists[i][1]) + '\n'
-            if lists[i][2] == name:
+            rkstr = '  %d' % (i+1)  # rank string
+            if len(rkstr) < 4: # add two (half-width) space for alignment
+                rkstr = '  ' + rkstr
+            hrstr = '%2.1f' % (lists[i][0] / 3600.0) # hour string 
+            if len(hrstr) < 4: # add four (half-width) space for alignment
+                hrstr = '    ' + hrstr
+            elif len(hrstr) < 5: # add two (half-width) space for alignment
+                hrstr =   '  ' + hrstr
+            msg = msg + rkstr + ' | ' + lists[i][2] + ' ' + hrstr + ' 小时\n'
+            if lists[i][3] == name:
                 rank = i + 1
         if rank != 0:
-            msg = msg + name + "的目前排名：" + (str)(rank)
+            names = lists[rank - 1][2].replace('　', '') # omit the full-width space '\xa1\xa1'
+            # splitline = '——————————\n' # split line (caution: display varies with PC and phone)
+            msg = msg + names + "的目前排名：" + (str)(rank)
         self.webwxsendmsg(msg, dst)
-
 
     def handleMsg(self, r):
         for msg in r['AddMsgList']:
@@ -1159,7 +1245,7 @@ class WebWeixin(object):
                 logging.debug('[*] 你在其他地方登录了 WEB 版微信，债见')
                 break
             elif retcode == '0':
-                if selector == '2':
+                if selector == '2' or selector == '3':
                     r = self.webwxsync()
                     if r is not None:
                         self.handleMsg(r)
@@ -1349,7 +1435,7 @@ class WebWeixin(object):
         # img.save("qrcode.png")
         #mat = qr.get_matrix()
         #self._printQR(mat)  # qr.print_tty() or qr.print_ascii()
-        qr.print_ascii(invert=True)
+        qr.print_tty()
 
     def _transcoding(self, data):
         if not data:
